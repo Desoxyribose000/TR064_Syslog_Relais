@@ -68,17 +68,34 @@ def get_log_from_tr64(host, port, uid, passwd):
     url = "http://" + HOST + ":" + PORT + locator
     try:
         response = requests.request("POST", url, headers=headers, data=payload, auth=HTTPDigestAuth(UID, PASSWD))
-        syslog.syslog(syslog.LOG_INFO, response)
+
+        try:
+            if response == "<Response [200]>":
+                pass
+            elif response == "<Response [401]>":
+                raise CustomError("Authorization failure.")
+        except CustomError:
+            syslog.syslog(syslog.LOG_ERR, str(CustomError))
+            raise CustomError
+
     except Exception:
-        syslog.syslog(syslog.LOG_ERR, Exception)
+        syslog.syslog(syslog.LOG_ERR, str(Exception))
+        raise Exception
 
     try:
-        if response == "<Response [200]>":
-            pass
-        elif response == "<Response [401]>":
-            raise CustomError("Authorization failure.")
-    except CustomError:
-        syslog.syslog(syslog.LOG_ERR, CustomError)
+        temp, garbage = response.text.split("</NewDeviceLog>", 1)
+
+        garbage, temp = temp.split("<NewDeviceLog>", 1)
+
+        events = temp.split("\n")
+
+    except Exception:
+        syslog.syslog(syslog.LOG_ERR, str(Exception))
+        raise Exception
+    finally:
+        return events
+
+
 
 
 def get_logs_from_file(file):
