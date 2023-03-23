@@ -6,43 +6,6 @@ import syslog
 credentials_filename = "credentials.ini"
 logs_filename = "tr064.log"
 
-# ---------------- Implementation for Linux Service --------------------------------------------------------------------
-
-# [Unit]
-# Description = Logging service for Tr-064 Device
-# After = network.target  # Assuming you want to start after network interfaces are made available
-#
-# [Service]
-# Type = simple
-# ExecStart = python < Path to File >
-# User =  # User to run the script as
-# Group =  # Group to run the script as
-# Restart = on - failure  # Restart when there are errors
-# SyslogIdentifier = TR-064 Relais Service
-# RestartSec = 5
-# TimeoutStartSec = infinity
-#
-# [Install]
-# WantedBy = multi - user.target  # Make it accessible to other users
-
-
-# File is intended to be executed as a service or cron job on linux repeatedly
-# needs error handling if something in the connection went wrong
-# needs initial setup for making HOST, PORT, UID and PASSWD available
-# build cron job version und service version (terminated version, recuring loop)
-
-# vorraussetzung installiertes syslog monitoring für client
-
-# persistent data in /var/app_name/logs
-
-# secret handling???? file with permissions?
-
-
-# todo:
-# cron job vs linux service
-#   add Unit File for Linux Service
-
-
 # Used for more granular Error handling acording to HTTP Response Code
 class CustomError(Exception):
     def __init__(self, value):
@@ -166,10 +129,14 @@ def log_to_syslog_and_file(new_logs, filename):
 # HOST = lines[0], PORT = lines[1], UID = lines[2], PASSWD = lines[3]
 creds = get_credentials_from_file(credentials_filename)
 
-logs_from_file = get_logs_from_file(logs_filename)
+while True:
+    # to reduce impact on system consider a sleep phase between executions
+    # time.sleep(5)
 
-logs_from_device = get_log_from_tr64(creds[0], creds[1], creds[2], creds[3])
+    logs_from_file = get_logs_from_file(logs_filename)
 
-new_log_messages = compare_logs(logs_from_file, logs_from_device)
+    logs_from_device = get_log_from_tr64(creds[0], creds[1], creds[2], creds[3])
 
-exit(log_to_syslog_and_file(new_log_messages, logs_filename))
+    new_log_messages = compare_logs(logs_from_file, logs_from_device)
+
+    log_to_syslog_and_file(new_log_messages, logs_filename)

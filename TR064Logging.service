@@ -1,0 +1,16 @@
+[Unit]
+Description = Logging service for Tr-064 Device
+After = network.target
+
+[Service]
+Type = simple
+ExecStart =/usr/bin/python3 /home/tr064Logger/tr064CheckLog.py
+User =  tr064Logger
+WorkingDirectory =/home/tr064Logger
+Restart = always
+SyslogIdentifier = TR-064 Relais Service
+RestartSec = 5
+TimeoutStartSec = infinity
+
+[Install]
+WantedBy = multi-user.target
