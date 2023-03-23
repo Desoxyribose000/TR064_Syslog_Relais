@@ -132,7 +132,8 @@ def compare_logs(file_logs, tr64logs):
 
         if file_logs:
 
-            new_messages = list(set(file_logs - tr64logs))
+            s = set(file_logs)
+            new_messages = [x for x in tr64logs if x not in s]
 
         else:
             new_messages = tr64logs
