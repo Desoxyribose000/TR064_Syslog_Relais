@@ -98,18 +98,30 @@ def get_log_from_tr64(host, port, uid, passwd):
         raise Exception
 
 
-def get_data_from_file(file):
+def get_credentials_from_file(file):
     # get credentials needed for execution from a file
     try:
         with open(file, 'rt') as file:
             lines = [str(line.strip()) for line in file]
 
+        return lines
+
     except Exception:
         syslog.syslog(syslog.LOG_ERR, "Error in reading files for TR064 logging service " + str(Exception))
         raise Exception
 
-    finally:
-        return lines
+
+def get_logs_from_file(file):
+    # get logs from file if file not existend return empty lines
+    try:
+        with open(file, 'rt') as file:
+            lines = [str(line.strip()) for line in file]
+
+    except Exception:
+        syslog.syslog(syslog.LOG_INFO, "New Log File will be created for TR064 logging service")
+        lines = ""
+
+    return lines
 
 
 def compare_logs(file_logs, tr64logs):
@@ -151,9 +163,9 @@ def log_to_syslog_and_file(new_logs, filename):
 
 
 # HOST = lines[0], PORT = lines[1], UID = lines[2], PASSWD = lines[3]
-creds = get_data_from_file(credentials_filename)
+creds = get_credentials_from_file(credentials_filename)
 
-logs_from_file = get_data_from_file(logs_filename)
+logs_from_file = get_logs_from_file(logs_filename)
 
 logs_from_device = get_log_from_tr64(creds[0], creds[1], creds[2], creds[3])
 
