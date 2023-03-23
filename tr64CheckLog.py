@@ -3,12 +3,8 @@ from requests.auth import HTTPDigestAuth
 import syslog
 
 
-HOST = "192.168.0.115"
-PORT = "49000"
-UID = '########'
-PASSWD = '########'
-
-
+credentials_filename = "credentials.ini"
+logs_filename = "tr064.log"
 
 # ---------------- Implementation for Linux Service --------------------------------------------------------------------
 
@@ -42,10 +38,16 @@ PASSWD = '########'
 # secret handling???? file with permissions?
 
 
+# todo:
+# cron job vs linux service
+#   add Unit File for Linux Service
+
+
 # Used for more granular Error handling acording to HTTP Response Code
 class CustomError(Exception):
     def __init__(self, value):
         self.value = value
+
     def __str__(self):
         return "Error: %s" % self.value
 
@@ -65,15 +67,15 @@ def get_log_from_tr64(host, port, uid, passwd):
 
     locator = "/upnp/control/deviceinfo"
 
-    url = "http://" + HOST + ":" + PORT + locator
+    url = "http://" + host + ":" + port + locator
     try:
-        response = requests.request("POST", url, headers=headers, data=payload, auth=HTTPDigestAuth(UID, PASSWD))
+        response = requests.request("POST", url, headers=headers, data=payload, auth=HTTPDigestAuth(uid, passwd))
 
         try:
             if response == "<Response [200]>":
                 pass
             elif response == "<Response [401]>":
-                raise CustomError("Authorization failure.")
+                raise CustomError("TR-064 Relais failed to authorize with TR-064 Log Origin Device")
         except CustomError:
             syslog.syslog(syslog.LOG_ERR, str(CustomError))
             raise CustomError
@@ -89,29 +91,72 @@ def get_log_from_tr64(host, port, uid, passwd):
 
         events = temp.split("\n")
 
+        return events
+
     except Exception:
         syslog.syslog(syslog.LOG_ERR, str(Exception))
         raise Exception
+
+
+def get_data_from_file(file):
+    # get credentials needed for execution from a file
+    try:
+        with open(file, 'rt') as file:
+            lines = [str(line.strip()) for line in file]
+
+    except Exception:
+        syslog.syslog(syslog.LOG_ERR, "Error in reading files for TR064 logging service " + str(Exception))
+        raise Exception
+
     finally:
-        return events
-
-
-
-
-def get_logs_from_file(file):
-    # gets all earlier received logs from a file
-    pass
+        return lines
 
 
 def compare_logs(file_logs, tr64logs):
     # compares new logs from tr064 with logs saved in file
     # if new log entries exist return them, if not return none
-    pass
+
+    try:
+
+        if file_logs:
+
+            new_messages = list(set(file_logs - tr64logs))
+
+        else:
+            new_messages = tr64logs
+
+        return new_messages
+
+    except Exception:
+        syslog.syslog(syslog.LOG_ERR, "Error in comparing files for TR064 logging service " + str(Exception))
+        raise Exception
 
 
-def log_to_syslog_and_file(new_logs):
+def log_to_syslog_and_file(new_logs, filename):
     # log all new log entries to syslog and add them afterwards to the file of logged messsages
-    pass
+
+    try:
+        logfile = open(filename, "at")
+
+        for line in new_logs:
+            syslog.syslog(syslog.LOG_INFO, line)
+            logfile.write(line + "\n")
+
+        logfile.close()
+        return 1
+
+    except Exception:
+        syslog.syslog(syslog.LOG_ERR, "Error in logging new messages for TR064 logging service " + str(Exception))
+        raise Exception
 
 
-print(get_log_from_tr64(HOST, PORT, UID, PASSWD))
+# HOST = lines[0], PORT = lines[1], UID = lines[2], PASSWD = lines[3]
+creds = get_data_from_file(credentials_filename)
+
+logs_from_file = get_data_from_file(logs_filename)
+
+logs_from_device = get_log_from_tr64(creds[0], creds[1], creds[2], creds[3])
+
+new_log_messages = compare_logs(logs_from_file, logs_from_device)
+
+exit(log_to_syslog_and_file(new_log_messages, logs_filename))
